@@ -53,7 +53,16 @@ def process_frame(frame):
     if results.multi_face_landmarks:
         for face_landmarks in results.multi_face_landmarks:
             # Yüz koordinatlarını al
-            startX, startY, endX, endY = get_box(face_landmarks, w, h)
+            idx_to_coors = get_box(face_landmarks, w, h)
+            
+            # Get coordinates from dictionary
+            x_coords = [coords[0] for coords in idx_to_coors.values()]
+            y_coords = [coords[1] for coords in idx_to_coors.values()]
+            
+            startX = min(x_coords)
+            startY = min(y_coords)
+            endX = max(x_coords)
+            endY = max(y_coords)
             
             # Yüz bölgesini kes
             face_img = frame[startY:endY, startX:endX]
