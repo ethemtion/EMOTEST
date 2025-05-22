@@ -19,14 +19,36 @@
             margin-top: 20px;
         }
         .question {
-            margin: 10px 0;
-            font-size: 18px;
+            margin: 20px 0;
+            font-size: 24px;
             color: #333;
+            min-height: 40px;
         }
         #video-feed {
             max-width: 100%;
             border: 2px solid #ddd;
             border-radius: 8px;
+        }
+        .next-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .next-button:hover {
+            background-color: #45a049;
+        }
+        .next-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
         }
     </style>
 </head>
@@ -39,34 +61,35 @@
         </div>
         
         <div class="questions-container">
-            <h2>Önerilen Sorular</h2>
-            <div id="questions">
-                <div class="question">Sorular yükleniyor...</div>
-            </div>
+            <h2>Önerilen Soru</h2>
+            <div id="current-question" class="question">Sorular yükleniyor...</div>
+            <button id="next-button" class="next-button" onclick="nextQuestion()">Sonraki Soru</button>
         </div>
     </div>
 
     <script>
-        function updateQuestions() {
-            fetch('/get_questions/')
+        function updateQuestion() {
+            fetch('/get_current_question/')
                 .then(response => response.json())
                 .then(data => {
-                    const questionsDiv = document.getElementById('questions');
-                    questionsDiv.innerHTML = '';
-                    data.questions.forEach((question, index) => {
-                        const questionElement = document.createElement('div');
-                        questionElement.className = 'question';
-                        questionElement.textContent = `Q${index + 1}: ${question}`;
-                        questionsDiv.appendChild(questionElement);
-                    });
+                    const questionDiv = document.getElementById('current-question');
+                    questionDiv.textContent = data.question;
                 })
-                .catch(error => console.error('Error fetching questions:', error));
+                .catch(error => console.error('Error fetching question:', error));
         }
 
-        // Update questions every 2 seconds
-        setInterval(updateQuestions, 2000);
+        function nextQuestion() {
+            fetch('/next_question/')
+                .then(response => response.json())
+                .then(data => {
+                    const questionDiv = document.getElementById('current-question');
+                    questionDiv.textContent = data.question;
+                })
+                .catch(error => console.error('Error fetching next question:', error));
+        }
+
         // Initial update
-        updateQuestions();
+        updateQuestion();
     </script>
 </body>
 </html> 
