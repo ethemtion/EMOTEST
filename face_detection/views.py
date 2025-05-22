@@ -60,7 +60,7 @@ def process_frame(frame):
             y_min, y_max = min(y_coords), max(y_coords)
             
             # Yüz bölgesini genişlet
-            padding = 20
+            padding = 30  # Increased padding for better face capture
             x_min = max(0, x_min - padding)
             y_min = max(0, y_min - padding)
             x_max = min(w, x_max + padding)
@@ -69,6 +69,10 @@ def process_frame(frame):
             face_img = frame[y_min:y_max, x_min:x_max]
             
             if face_img.size > 0:
+                # Ensure minimum face size
+                if face_img.shape[0] < 48 or face_img.shape[1] < 48:
+                    continue
+                    
                 # Duygu analizi
                 face_pil = Image.fromarray(cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB))
                 face_tensor = pth_processing(face_pil)
@@ -78,7 +82,11 @@ def process_frame(frame):
                     features = resnet.extract_features(face_tensor)
                     features = features.unsqueeze(1)  # LSTM için boyut ekle
                     emotion_pred = lstm(features)
-                    emotion_idx = torch.argmax(emotion_pred).item()
+                    
+                    # Get probabilities using softmax
+                    probabilities = torch.nn.functional.softmax(emotion_pred, dim=1)
+                    emotion_idx = torch.argmax(probabilities).item()
+                    confidence = probabilities[0][emotion_idx].item() * 100
                 
                 # Duygu etiketleri
                 emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
@@ -86,7 +94,8 @@ def process_frame(frame):
                 
                 # Sonuçları görselleştir
                 cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
-                cv2.putText(frame, emotion, (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                text = f"{emotion} ({confidence:.1f}%)"
+                cv2.putText(frame, text, (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
     
     return frame
 
