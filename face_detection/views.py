@@ -77,6 +77,11 @@ def process_frame(frame):
                 
                 if face_img.size > 0:
                     try:
+                        # Yüz bölgesinin boyutunu kontrol et
+                        if face_img.shape[0] < 10 or face_img.shape[1] < 10:
+                            print("Yüz bölgesi çok küçük")
+                            continue
+                            
                         # Duygu analizi
                         face_pil = Image.fromarray(cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB))
                         face_tensor = pth_processing(face_pil)
@@ -89,8 +94,11 @@ def process_frame(frame):
                             emotion_probs = torch.softmax(emotion_pred, dim=1)
                             max_prob, emotion_idx = torch.max(emotion_probs, dim=1)
                             
+                            # Tahmin sonuçlarını yazdır
+                            print(f"Tahmin güvenilirliği: {max_prob.item():.2f}")
+                            
                             # Sadece yüksek güvenilirlikli tahminleri göster
-                            if max_prob.item() > 0.5:
+                            if max_prob.item() > 0.3:  # Güvenilirlik eşiğini düşürdük
                                 emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
                                 emotion = emotions[emotion_idx.item()]
                                 
@@ -98,8 +106,13 @@ def process_frame(frame):
                                 cv2.putText(frame, f"{emotion} ({max_prob.item():.2f})", 
                                           (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 
                                           0.9, (0, 255, 0), 2)
+                            else:
+                                print("Düşük güvenilirlikli tahmin")
                     except Exception as e:
                         print(f"İşleme hatası: {str(e)}")
+                        print(f"Hata detayı: {type(e).__name__}")
+    else:
+        print("Yüz tespit edilemedi")
     
     return frame
 
