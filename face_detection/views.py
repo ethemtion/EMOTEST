@@ -32,8 +32,8 @@ mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(
     max_num_faces=1,
     refine_landmarks=True,
-    min_detection_confidence=0.7,
-    min_tracking_confidence=0.7
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5
 )
 
 def index(request):
@@ -102,11 +102,16 @@ def process_frame(frame):
 
 def video_feed():
     cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("HATA: Kamera açılamadı!")
+        return
+        
     frame_count = 0
     
     while True:
         ret, frame = cap.read()
         if not ret:
+            print("HATA: Frame okunamadı!")
             break
             
         # Her 2 frame'de bir işle (performans için)
