@@ -31,10 +31,13 @@ lstm.eval()
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(
     max_num_faces=1,
-    refine_landmarks=True,
+    refine_landmarks=False,
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5
 )
+
+# Emotion dictionary matching run_webcam.ipynb
+DICT_EMO = {0: 'Neutral', 1: 'Happiness', 2: 'Sadness', 3: 'Surprise', 4: 'Fear', 5: 'Disgust', 6: 'Anger'}
 
 def index(request):
     return render(request, 'face_detection/index.html')
@@ -50,23 +53,10 @@ def process_frame(frame):
     if results.multi_face_landmarks:
         for face_landmarks in results.multi_face_landmarks:
             # Yüz koordinatlarını al
-            idx_to_coors = get_box(face_landmarks, w, h)
+            startX, startY, endX, endY = get_box(face_landmarks, w, h)
             
             # Yüz bölgesini kes
-            x_coords = [coords[0] for coords in idx_to_coors.values()]
-            y_coords = [coords[1] for coords in idx_to_coors.values()]
-            
-            x_min, x_max = min(x_coords), max(x_coords)
-            y_min, y_max = min(y_coords), max(y_coords)
-            
-            # Yüz bölgesini genişlet
-            padding = 30  # Increased padding for better face capture
-            x_min = max(0, x_min - padding)
-            y_min = max(0, y_min - padding)
-            x_max = min(w, x_max + padding)
-            y_max = min(h, y_max + padding)
-            
-            face_img = frame[y_min:y_max, x_min:x_max]
+            face_img = frame[startY:endY, startX:endX]
             
             if face_img.size > 0:
                 # Ensure minimum face size
@@ -79,23 +69,30 @@ def process_frame(frame):
                 face_tensor = face_tensor.to(device)
                 
                 with torch.no_grad():
-                    features = resnet.extract_features(face_tensor)
-                    features = features.unsqueeze(1)  # LSTM için boyut ekle
-                    emotion_pred = lstm(features)
+                    features = torch.nn.functional.relu(resnet.extract_features(face_tensor)).detach().cpu().numpy()
                     
-                    # Get probabilities using softmax
-                    probabilities = torch.nn.functional.softmax(emotion_pred, dim=1)
-                    emotion_idx = torch.argmax(probabilities).item()
-                    confidence = probabilities[0][emotion_idx].item() * 100
+                    # Initialize or update LSTM features
+                    if not hasattr(process_frame, 'lstm_features'):
+                        process_frame.lstm_features = [features] * 10
+                    else:
+                        process_frame.lstm_features = process_frame.lstm_features[1:] + [features]
+                    
+                    # Prepare LSTM input
+                    lstm_input = torch.from_numpy(np.vstack(process_frame.lstm_features))
+                    lstm_input = torch.unsqueeze(lstm_input, 0).to(device)
+                    
+                    # Get emotion prediction
+                    output = lstm(lstm_input).detach().cpu().numpy()
+                    emotion_idx = np.argmax(output)
+                    confidence = output[0][emotion_idx] * 100
                 
-                # Duygu etiketleri
-                emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
-                emotion = emotions[emotion_idx]
+                # Get emotion label
+                emotion = DICT_EMO[emotion_idx]
                 
                 # Sonuçları görselleştir
-                cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+                cv2.rectangle(frame, (startX, startY), (endX, endY), (0, 255, 0), 2)
                 text = f"{emotion} ({confidence:.1f}%)"
-                cv2.putText(frame, text, (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                cv2.putText(frame, text, (startX, startY-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
     
     return frame
 
