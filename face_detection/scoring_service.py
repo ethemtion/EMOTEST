@@ -8,6 +8,8 @@ class ScoringService:
         self.max_history = max_history
         self.recent_fraction = recent_fraction
         self.recent_weight = recent_weight
+        self.current_question_index = 0
+        self.has_shown_greeting = False
         
         # Map emotions to valence scores
         self.valence_map = {
@@ -78,10 +80,13 @@ class ScoringService:
     def reset(self):
         """Reset all scores"""
         self.raw_scores.clear()
+        self.current_question_index = 0
+        self.has_shown_greeting = False
     
     def load_questions(self):
         """Load questions from JSON file"""
         questions = {
+            "greeting": ["Merhaba, bugün nasılsınız?"],
             "positive_high": [
                 "Harika gidiyor, bir başarı hikayeniz var mı?",
                 "Bu pozitif deneyimi nasıl pekiştirdiniz?"
@@ -122,8 +127,24 @@ class ScoringService:
         else:
             return "negative_high"
     
-    def get_questions(self):
-        """Get questions based on current score"""
+    def get_current_question(self):
+        """Get the current question based on state"""
+        if not self.has_shown_greeting:
+            return self.questions["greeting"][0]
+        
         score = self.weighted_average()
         bucket = self.bucket_key(score)
-        return self.questions.get(bucket, self.questions["unknown"]) 
+        bucket_questions = self.questions.get(bucket, self.questions["unknown"])
+        
+        if self.current_question_index >= len(bucket_questions):
+            self.current_question_index = 0
+            
+        return bucket_questions[self.current_question_index]
+    
+    def next_question(self):
+        """Move to the next question"""
+        if not self.has_shown_greeting:
+            self.has_shown_greeting = True
+            self.current_question_index = 0
+        else:
+            self.current_question_index += 1 
