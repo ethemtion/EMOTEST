@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import StreamingHttpResponse
+from django.http import StreamingHttpResponse, JsonResponse
 import cv2
 import numpy as np
 import mediapipe as mp
@@ -105,21 +105,12 @@ def process_frame(frame):
                 # Record emotion in scoring service
                 scoring_service.record(emotion, confidence)
                 
-                # Get current questions based on score
-                questions = scoring_service.get_questions()
-                
                 # Sonuçları görselleştir
                 cv2.rectangle(frame, (startX, startY), (endX, endY), (0, 255, 0), 2)
                 
                 # Display emotion and confidence
                 text = f"{emotion} ({confidence:.1%})"
                 cv2.putText(frame, text, (startX, startY-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-                
-                # Display current questions
-                y_offset = endY + 20
-                for i, question in enumerate(questions):
-                    cv2.putText(frame, f"Q{i+1}: {question}", (10, y_offset + i*30), 
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
     
     return frame
 
@@ -143,3 +134,8 @@ def video_feed():
 def video_stream(request):
     return StreamingHttpResponse(video_feed(),
                                 content_type='multipart/x-mixed-replace; boundary=frame')
+
+def get_questions(request):
+    """API endpoint to get current questions"""
+    questions = scoring_service.get_questions()
+    return JsonResponse({'questions': questions})
