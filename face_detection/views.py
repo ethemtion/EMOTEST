@@ -135,7 +135,13 @@ def video_stream(request):
     return StreamingHttpResponse(video_feed(),
                                 content_type='multipart/x-mixed-replace; boundary=frame')
 
-def get_questions(request):
-    """API endpoint to get current questions"""
-    questions = scoring_service.get_questions()
-    return JsonResponse({'questions': questions})
+def get_current_question(request):
+    """API endpoint to get current question"""
+    question = scoring_service.get_current_question()
+    return JsonResponse({'question': question})
+
+def next_question(request):
+    """API endpoint to move to next question"""
+    scoring_service.next_question()
+    question = scoring_service.get_current_question()
+    return JsonResponse({'question': question})
