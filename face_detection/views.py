@@ -6,6 +6,7 @@ import mediapipe as mp
 import torch
 from PIL import Image
 from .models import ResNet50, LSTMPyTorch, pth_processing, get_box
+from .scoring_service import ScoringService
 import os
 
 # Model yükleme
@@ -38,6 +39,9 @@ face_mesh = mp_face_mesh.FaceMesh(
 
 # Emotion dictionary matching run_webcam.ipynb
 DICT_EMO = {0: 'Neutral', 1: 'Happiness', 2: 'Sadness', 3: 'Surprise', 4: 'Fear', 5: 'Disgust', 6: 'Anger'}
+
+# Initialize ScoringService
+scoring_service = ScoringService()
 
 def index(request):
     return render(request, 'face_detection/index.html')
@@ -93,15 +97,29 @@ def process_frame(frame):
                     # Get emotion prediction
                     output = lstm(lstm_input).detach().cpu().numpy()
                     emotion_idx = np.argmax(output)
-                    confidence = output[0][emotion_idx] * 100
+                    confidence = output[0][emotion_idx]
                 
                 # Get emotion label
                 emotion = DICT_EMO[emotion_idx]
                 
+                # Record emotion in scoring service
+                scoring_service.record(emotion, confidence)
+                
+                # Get current questions based on score
+                questions = scoring_service.get_questions()
+                
                 # Sonuçları görselleştir
                 cv2.rectangle(frame, (startX, startY), (endX, endY), (0, 255, 0), 2)
-                text = f"{emotion} ({confidence:.1f}%)"
+                
+                # Display emotion and confidence
+                text = f"{emotion} ({confidence:.1%})"
                 cv2.putText(frame, text, (startX, startY-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                
+                # Display current questions
+                y_offset = endY + 20
+                for i, question in enumerate(questions):
+                    cv2.putText(frame, f"Q{i+1}: {question}", (10, y_offset + i*30), 
+                              cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
     
     return frame
 
