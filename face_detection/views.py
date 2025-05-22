@@ -55,48 +55,51 @@ def process_frame(frame):
             # Yüz koordinatlarını al
             idx_to_coors = get_box(face_landmarks, w, h)
             
-            # Yüz bölgesini kes
-            x_coords = [coords[0] for coords in idx_to_coors.values()]
-            y_coords = [coords[1] for coords in idx_to_coors.values()]
-            
-            x_min, x_max = min(x_coords), max(x_coords)
-            y_min, y_max = min(y_coords), max(y_coords)
-            
-            # Yüz bölgesini genişlet
-            padding = 30
-            x_min = max(0, x_min - padding)
-            y_min = max(0, y_min - padding)
-            x_max = min(w, x_max + padding)
-            y_max = min(h, y_max + padding)
-            
-            face_img = frame[y_min:y_max, x_min:x_max]
-            
-            if face_img.size > 0:
-                try:
-                    # Duygu analizi
-                    face_pil = Image.fromarray(cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB))
-                    face_tensor = pth_processing(face_pil)
-                    face_tensor = face_tensor.to(device)
-                    
-                    with torch.no_grad():
-                        features = resnet.extract_features(face_tensor)
-                        features = features.unsqueeze(1)
-                        emotion_pred = lstm(features)
-                        emotion_probs = torch.softmax(emotion_pred, dim=1)
-                        max_prob, emotion_idx = torch.max(emotion_probs, dim=1)
+            if idx_to_coors:  # Koordinatlar varsa
+                # Yüz bölgesini kes
+                x_coords = [coords[0] for coords in idx_to_coors.values()]
+                y_coords = [coords[1] for coords in idx_to_coors.values()]
+                
+                x_min, x_max = min(x_coords), max(x_coords)
+                y_min, y_max = min(y_coords), max(y_coords)
+                
+                # Yüz bölgesini genişlet
+                padding = 30
+                x_min = max(0, x_min - padding)
+                y_min = max(0, y_min - padding)
+                x_max = min(w, x_max + padding)
+                y_max = min(h, y_max + padding)
+                
+                # Yüz bölgesini çiz
+                cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+                
+                face_img = frame[y_min:y_max, x_min:x_max]
+                
+                if face_img.size > 0:
+                    try:
+                        # Duygu analizi
+                        face_pil = Image.fromarray(cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB))
+                        face_tensor = pth_processing(face_pil)
+                        face_tensor = face_tensor.to(device)
                         
-                        # Sadece yüksek güvenilirlikli tahminleri göster
-                        if max_prob.item() > 0.5:
-                            emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
-                            emotion = emotions[emotion_idx.item()]
+                        with torch.no_grad():
+                            features = resnet.extract_features(face_tensor)
+                            features = features.unsqueeze(1)
+                            emotion_pred = lstm(features)
+                            emotion_probs = torch.softmax(emotion_pred, dim=1)
+                            max_prob, emotion_idx = torch.max(emotion_probs, dim=1)
                             
-                            # Sonuçları görselleştir
-                            cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
-                            cv2.putText(frame, f"{emotion} ({max_prob.item():.2f})", 
-                                      (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 
-                                      0.9, (0, 255, 0), 2)
-                except Exception as e:
-                    print(f"İşleme hatası: {str(e)}")
+                            # Sadece yüksek güvenilirlikli tahminleri göster
+                            if max_prob.item() > 0.5:
+                                emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
+                                emotion = emotions[emotion_idx.item()]
+                                
+                                # Duygu etiketini yaz
+                                cv2.putText(frame, f"{emotion} ({max_prob.item():.2f})", 
+                                          (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 
+                                          0.9, (0, 255, 0), 2)
+                    except Exception as e:
+                        print(f"İşleme hatası: {str(e)}")
     
     return frame
 
