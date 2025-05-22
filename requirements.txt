@@ -1,0 +1,7 @@
+Django==5.2.1
+opencv-python
+numpy
+mediapipe
+torch
+torchvision
+Pillow 

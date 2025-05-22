@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Yüz Tanıma ve Duygu Analizi</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .video-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .video-feed {
+            max-width: 100%;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+        }
+        .emotion-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .emotion-info h2 {
+            color: #444;
+            margin-bottom: 10px;
+        }
+        .emotion-list {
+            list-style: none;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .emotion-item {
+            padding: 5px 15px;
+            background-color: #e9ecef;
+            border-radius: 15px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Yüz Tanıma ve Duygu Analizi</h1>
+        <div class="video-container">
+            <img src="{% url 'video_feed' %}" class="video-feed" alt="Video Feed">
+        </div>
+        <div class="emotion-info">
+            <h2>Tespit Edilen Duygular</h2>
+            <ul class="emotion-list">
+                <li class="emotion-item">Angry</li>
+                <li class="emotion-item">Disgust</li>
+                <li class="emotion-item">Fear</li>
+                <li class="emotion-item">Happy</li>
+                <li class="emotion-item">Sad</li>
+                <li class="emotion-item">Surprise</li>
+                <li class="emotion-item">Neutral</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html> 
