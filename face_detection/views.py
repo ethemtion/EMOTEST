@@ -97,17 +97,20 @@ def process_frame(frame):
                             # Tahmin sonuçlarını yazdır
                             print(f"Tahmin güvenilirliği: {max_prob.item():.2f}")
                             
-                            # Sadece yüksek güvenilirlikli tahminleri göster
-                            if max_prob.item() > 0.3:  # Güvenilirlik eşiğini düşürdük
-                                emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
-                                emotion = emotions[emotion_idx.item()]
-                                
-                                # Duygu etiketini yaz
-                                cv2.putText(frame, f"{emotion} ({max_prob.item():.2f})", 
-                                          (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 
-                                          0.9, (0, 255, 0), 2)
-                            else:
-                                print("Düşük güvenilirlikli tahmin")
+                            # Tüm tahminleri göster
+                            emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
+                            emotion = emotions[emotion_idx.item()]
+                            
+                            # Duygu etiketini yaz
+                            cv2.putText(frame, f"{emotion} ({max_prob.item():.2f})", 
+                                      (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 
+                                      0.9, (0, 255, 0), 2)
+                            
+                            # Düşük güvenilirlikli tahminleri farklı renkte göster
+                            if max_prob.item() < 0.3:
+                                cv2.putText(frame, "Düşük Güvenilirlik", 
+                                          (x_min, y_min-30), cv2.FONT_HERSHEY_SIMPLEX, 
+                                          0.7, (0, 0, 255), 2)
                     except Exception as e:
                         print(f"İşleme hatası: {str(e)}")
                         print(f"Hata detayı: {type(e).__name__}")
