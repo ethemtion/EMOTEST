@@ -50,6 +50,27 @@
             background-color: #cccccc;
             cursor: not-allowed;
         }
+        .emotions-container {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        .emotion-pill {
+            background-color: #f0f0f0;
+            border-radius: 20px;
+            padding: 6px 14px;
+            display: inline-block;
+            font-size: 14px;
+            margin: 5px;
+            border: 1px solid #ddd;
+        }
+        .emotion-active {
+            background-color: #4CAF50;
+            color: white;
+            border-color: #45a049;
+        }
     </style>
 </head>
 <body>
@@ -61,7 +82,16 @@
         </div>
         
         <div class="questions-container">
-            <h2></h2>
+            <h2>Ölçülen Duygular</h2>
+            <div class="emotions-container">
+                <span class="emotion-pill" id="emotion-mutlu">Mutlu</span>
+                <span class="emotion-pill" id="emotion-uzgun">Üzgün</span>
+                <span class="emotion-pill" id="emotion-kizgin">Kızgın</span>
+                <span class="emotion-pill" id="emotion-saskin">Şaşkın</span>
+                <span class="emotion-pill" id="emotion-korkmus">Korkmuş</span>
+                <span class="emotion-pill" id="emotion-tiksinmis">Tiksinmiş</span>
+                <span class="emotion-pill" id="emotion-notr">Nötr</span>
+            </div>
             <div id="current-question" class="question">Sorular yükleniyor...</div>
             <button id="next-button" class="next-button" onclick="nextQuestion()">Sonraki Soru</button>
         </div>
@@ -78,6 +108,31 @@
                 .catch(error => console.error('Error fetching question:', error));
         }
 
+        function updateEmotion(emotionName) {
+            // Reset all emotions
+            document.querySelectorAll('.emotion-pill').forEach(pill => {
+                pill.classList.remove('emotion-active');
+            });
+            
+            // Activate the detected emotion
+            const emotionElement = document.getElementById('emotion-' + emotionName);
+            if (emotionElement) {
+                emotionElement.classList.add('emotion-active');
+            }
+        }
+
+        // Function to periodically check for emotion updates
+        function checkEmotionUpdates() {
+            fetch('/get_current_emotion/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.emotion) {
+                        updateEmotion(data.emotion);
+                    }
+                })
+                .catch(error => console.error('Error fetching emotion:', error));
+        }
+
         function nextQuestion() {
             fetch('/next_question/')
                 .then(response => response.json())
@@ -90,6 +145,9 @@
 
         // Initial update
         updateQuestion();
+        
+        // Check for emotion updates every 1 second
+        setInterval(checkEmotionUpdates, 1000);
     </script>
 </body>
 </html> 
