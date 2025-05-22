@@ -7,6 +7,11 @@ import torch
 from PIL import Image
 from .models import ResNet50, LSTMPyTorch, pth_processing, get_box
 import os
+import logging
+
+# Logging ayarları
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Model yükleme
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -32,30 +37,31 @@ mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(
     max_num_faces=1,
     refine_landmarks=True,
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5
+    min_detection_confidence=0.5,  # Eşiği düşürdük
+    min_tracking_confidence=0.5    # Eşiği düşürdük
 )
 
 def index(request):
     return render(request, 'face_detection/index.html')
 
 def process_frame(frame):
-    # Frame boyutunu küçült
-    frame = cv2.resize(frame, (640, 480))
-    
-    # BGR'den RGB'ye dönüştür
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    h, w = frame.shape[:2]
-    
-    # Yüz tespiti
-    results = face_mesh.process(rgb_frame)
-    
-    if results.multi_face_landmarks:
-        for face_landmarks in results.multi_face_landmarks:
-            # Yüz koordinatlarını al
-            idx_to_coors = get_box(face_landmarks, w, h)
-            
-            if idx_to_coors:  # Koordinatlar varsa
+    try:
+        # Frame boyutunu küçült
+        frame = cv2.resize(frame, (640, 480))
+        
+        # BGR'den RGB'ye dönüştür
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        h, w = frame.shape[:2]
+        
+        # Yüz tespiti
+        results = face_mesh.process(rgb_frame)
+        
+        if results.multi_face_landmarks:
+            logger.info("Yüz tespit edildi")
+            for face_landmarks in results.multi_face_landmarks:
+                # Yüz koordinatlarını al
+                idx_to_coors = get_box(face_landmarks, w, h)
+                
                 # Yüz bölgesini kes
                 x_coords = [coords[0] for coords in idx_to_coors.values()]
                 y_coords = [coords[1] for coords in idx_to_coors.values()]
@@ -64,24 +70,16 @@ def process_frame(frame):
                 y_min, y_max = min(y_coords), max(y_coords)
                 
                 # Yüz bölgesini genişlet
-                padding = 30
+                padding = 20
                 x_min = max(0, x_min - padding)
                 y_min = max(0, y_min - padding)
                 x_max = min(w, x_max + padding)
                 y_max = min(h, y_max + padding)
                 
-                # Yüz bölgesini çiz
-                cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
-                
                 face_img = frame[y_min:y_max, x_min:x_max]
                 
                 if face_img.size > 0:
                     try:
-                        # Yüz bölgesinin boyutunu kontrol et
-                        if face_img.shape[0] < 10 or face_img.shape[1] < 10:
-                            print("Yüz bölgesi çok küçük")
-                            continue
-                            
                         # Duygu analizi
                         face_pil = Image.fromarray(cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB))
                         face_tensor = pth_processing(face_pil)
@@ -94,51 +92,45 @@ def process_frame(frame):
                             emotion_probs = torch.softmax(emotion_pred, dim=1)
                             max_prob, emotion_idx = torch.max(emotion_probs, dim=1)
                             
-                            # Tahmin sonuçlarını yazdır
-                            print(f"Tahmin güvenilirliği: {max_prob.item():.2f}")
-                            
-                            # Tüm tahminleri göster
-                            emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
-                            emotion = emotions[emotion_idx.item()]
-                            
-                            # Duygu etiketini yaz
-                            cv2.putText(frame, f"{emotion} ({max_prob.item():.2f})", 
-                                      (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 
-                                      0.9, (0, 255, 0), 2)
-                            
-                            # Düşük güvenilirlikli tahminleri farklı renkte göster
-                            if max_prob.item() < 0.3:
-                                cv2.putText(frame, "Düşük Güvenilirlik", 
-                                          (x_min, y_min-30), cv2.FONT_HERSHEY_SIMPLEX, 
-                                          0.7, (0, 0, 255), 2)
+                            # Sadece yüksek güvenilirlikli tahminleri göster
+                            if max_prob.item() > 0.3:  # Güven eşiğini düşürdük
+                                emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
+                                emotion = emotions[emotion_idx.item()]
+                                
+                                # Sonuçları görselleştir
+                                cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+                                cv2.putText(frame, f"{emotion} ({max_prob.item():.2f})", 
+                                          (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 
+                                          0.9, (0, 255, 0), 2)
+                                logger.info(f"Duygu tespit edildi: {emotion} ({max_prob.item():.2f})")
                     except Exception as e:
-                        print(f"İşleme hatası: {str(e)}")
-                        print(f"Hata detayı: {type(e).__name__}")
-    else:
-        print("Yüz tespit edilemedi")
+                        logger.error(f"Duygu analizi hatası: {str(e)}")
+        else:
+            logger.info("Yüz tespit edilemedi")
+            
+    except Exception as e:
+        logger.error(f"Frame işleme hatası: {str(e)}")
     
     return frame
 
 def video_feed():
     cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        print("HATA: Kamera açılamadı!")
-        return
-        
+    
+    # Kamera ayarlarını optimize et
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.CAP_PROP_FPS, 30)
+    
     frame_count = 0
     
     while True:
         ret, frame = cap.read()
         if not ret:
-            print("HATA: Frame okunamadı!")
+            logger.error("Kamera görüntüsü alınamadı")
             break
             
-        # Her 2 frame'de bir işle (performans için)
-        if frame_count % 2 == 0:
-            processed_frame = process_frame(frame)
-        else:
-            processed_frame = frame
-            
+        # Her frame'i işle
+        processed_frame = process_frame(frame)
         frame_count += 1
         
         # Frame'i JPEG formatına dönüştür
